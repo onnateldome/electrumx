@@ -511,3 +511,10 @@ class ZcoinMtpDaemon(Daemon):
     async def protx(self, params):
         '''Set of commands to execute ProTx related actions.'''
         return await self._send_single('protx', params)
+
+    async def getanonymityset(self, params):
+        return await self._send_single('getanonymityset', params)
+
+    async def getmintmetadata(self, params):
+        return await self._send_single('getmintmetadata', params)
+

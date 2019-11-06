@@ -1715,14 +1715,14 @@ class ZcoinElectrumX(DashElectrumX):
             return result
         return None
 
-    async def getmintmetadata(self, denom, pubcoin):
+    async def getmintmetadata(self, mints):
         '''
         Returns the block height and groupId of pubcoin
 
         denom: denomination in COINs
         pubcoin: pubcoin's serialization
         '''
-        result = await self.daemon_request('getmintmetadata', [denom, pubcoin])
+        result = await self.daemon_request('getmintmetadata', [mints])
         if result is not None:
             return result
         return None

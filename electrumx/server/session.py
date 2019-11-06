@@ -1693,3 +1693,36 @@ class AuxPoWElectrumX(ElectrumX):
             height += 1
 
         return headers.hex()
+
+
+class ZcoinElectrumX(DashElectrumX):
+    def set_request_handlers(self, ptuple):
+        super().set_request_handlers(ptuple)
+        self.request_handlers.update({
+            'sigma.getanonymityset': self.getanonymityset,
+            'sigma.getmintmetadata': self.getmintmetadata,
+        })
+
+    async def getanonymityset(self, denom, groupId):
+        '''
+        Returns the whole anonynity set for denomination in the groupId
+
+        denom: denomination in COINs
+        groupId: the anonymity group id
+        '''
+        result = await self.daemon_request('getanonymityset', [denom, groupId])
+        if result is not None:
+            return result
+        return None
+
+    async def getmintmetadata(self, denom, pubcoin):
+        '''
+        Returns the block height and groupId of pubcoin
+
+        denom: denomination in COINs
+        pubcoin: pubcoin's serialization
+        '''
+        result = await self.daemon_request('getmintmetadata', [denom, pubcoin])
+        if result is not None:
+            return result
+        return None

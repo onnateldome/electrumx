@@ -1693,6 +1693,8 @@ class ZcoinElectrumX(DashElectrumX):
         self.request_handlers.update({
             'sigma.getanonymityset': self.getanonymityset,
             'sigma.getmintmetadata': self.getmintmetadata,
+            'sigma.getusedcoinserials': self.getusedcoinserials,
+            'sigma.getlatestcoinids': self.getlatestcoinids,
         })
 
     async def getanonymityset(self, denom, groupId):
@@ -1715,6 +1717,27 @@ class ZcoinElectrumX(DashElectrumX):
         pubcoin: pubcoin's serialization
         '''
         result = await self.daemon_request('getmintmetadata', [mints])
+        if result is not None:
+            return result
+        return None
+
+    async def getusedcoinserials(self):
+        '''
+        Returns the whole set of the used coin serials
+        '''
+        result = await self.daemon_request('getusedcoinserials')
+        if result is not None:
+            return result
+        return None
+
+    async def getlatestcoinids(self):
+        '''
+        Returns the whole anonynity set for denomination in the groupId
+
+        denom: denomination in COINs
+        groupId: the anonymity group id
+        '''
+        result = await self.daemon_request('getlatestcoinids')
         if result is not None:
             return result
         return None

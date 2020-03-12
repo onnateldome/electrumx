@@ -522,3 +522,8 @@ class ZcoinMtpDaemon(Daemon):
     async def getmintmetadata(self, params):
         return await self._send_single('getmintmetadata', params)
 
+    async def getusedcoinserials(self):
+        return await self._send_single('getusedcoinserials')
+
+    async def getlatestcoinids(self):
+        return await self._send_single('getlatestcoinids')

@@ -11,12 +11,13 @@
 
 import asyncio
 import time
+import json
 
 from aiorpcx import TaskGroup, run_in_thread, CancelledError
 
 import electrumx
 from electrumx.server.daemon import DaemonError
-from electrumx.lib.hash import hash_to_hex_str, HASHX_LEN
+from electrumx.lib.hash import hash_to_hex_str, HASHX_LEN, hex_str_to_hash
 from electrumx.lib.script import is_unspendable_legacy, is_unspendable_genesis
 from electrumx.lib.util import (
     chunks, class_logger, pack_le_uint32, pack_le_uint64, unpack_le_uint64

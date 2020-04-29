@@ -79,6 +79,8 @@ class DB(object):
         self.db_class = db_class(self.env.db_engine)
         self.history = History()
         self.utxo_db = None
+        if self.coin.SUBCHAINS is not None:
+            self.hist_sbc_db = None
         self.utxo_flush_count = 0
         self.fs_height = -1
         self.fs_tx_count = 0

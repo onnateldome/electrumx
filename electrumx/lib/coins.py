@@ -48,10 +48,10 @@ import electrumx.lib.tx_axe as lib_tx_axe
 import electrumx.server.block_processor as block_proc
 import electrumx.server.daemon as daemon
 from electrumx.server.session import (ElectrumX, DashElectrumX,
-                                      SmartCashElectrumX, AuxPoWElectrumX)
+                                      SmartCashElectrumX, AuxPoWElectrumX, OMNIElectrumX)
 
 
-Block = namedtuple("Block", "raw header transactions")
+Block = namedtuple("Block", "raw header transactions metadata")
 
 
 class CoinError(Exception):
@@ -73,6 +73,7 @@ class Coin(object):
     DESERIALIZER = lib_tx.Deserializer
     DAEMON = daemon.Daemon
     BLOCK_PROCESSOR = block_proc.BlockProcessor
+    SUBCHAINS = []
     HEADER_VALUES = ('version', 'prev_block_hash', 'merkle_root', 'timestamp',
                      'bits', 'nonce')
     HEADER_UNPACK = struct.Struct('< I 32s 32s I I I').unpack_from
@@ -255,7 +256,7 @@ class Coin(object):
         '''Return a Block namedtuple given a raw block and its height.'''
         header = cls.block_header(raw_block, height)
         txs = cls.DESERIALIZER(raw_block, start=len(header)).read_tx_block()
-        return Block(raw_block, header, txs)
+        return Block(raw_block, header, txs, {})
 
     @classmethod
     def decimal_value(cls, value):
@@ -4558,3 +4559,20 @@ class Horizen(EquihashMixin, Coin):
     TX_PER_BLOCK = 1
     RPC_PORT = 9387
     REORG_LIMIT = 5000
+
+
+class Omni(BitcoinMixin, Coin):
+    DAEMON = daemon.OmniDaemon
+    NAME = "omni"
+    SHORTNAME = "OMNI"
+    SESSIONCLS = OMNIElectrumX
+    DESERIALIZER = lib_tx.DeserializerSegWit
+    SUBCHAINS = ["omni"]
+    TX_COUNT = 1
+    TX_COUNT_HEIGHT = 1
+    TX_PER_BLOCK = 1
+
+
+class OmniTestnet(BitcoinTestnetMixin, Omni):
+    NET = "testnet"
+    SHORTNAME = "XMNI"

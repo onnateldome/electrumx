@@ -72,6 +72,8 @@ def hash_to_hex_str(x):
 
     Display form of a binary hash is reversed and converted to hex.
     '''
+    if x is None:
+        return None
     return bytes(reversed(x)).hex()
 
 

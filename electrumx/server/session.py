@@ -128,6 +128,7 @@ class SessionManager:
         self._method_counts = defaultdict(int)
         self._reorg_count = 0
         self._history_cache = pylru.lrucache(1000)
+        self.history_sbc_cache = pylru.lrucache(1000)
         self._history_lookups = 0
         self._history_hits = 0
         self._tx_hashes_cache = pylru.lrucache(1000)
@@ -1024,11 +1025,15 @@ class ElectrumX(SessionBase):
         # Note history is ordered and mempool unordered in electrum-server
         # For mempool, height is -1 if it has unconfirmed inputs, otherwise 0
         db_history, cost = await self.session_mgr.limited_history(hashX)
+        db_history_sbc, cost = await self.session_mgr.limited_history(hashX)
         mempool = await self.mempool.transaction_summaries(hashX)
 
         status = ''.join(f'{hash_to_hex_str(tx_hash)}:'
                          f'{height:d}:'
                          for tx_hash, height in db_history)
+        status += ''.join(f'{hash_to_hex_str(tx_hash)}:'
+                         f'{height:d}:'
+                         for tx_hash, height in db_history_sbc)                 
         status += ''.join(f'{hash_to_hex_str(tx.hash)}:'
                           f'{-tx.has_unconfirmed_inputs:d}:'
                           for tx in mempool)
@@ -1403,6 +1408,7 @@ class ElectrumX(SessionBase):
             'blockchain.relayfee': self.relayfee,
             'blockchain.scripthash.get_balance': self.scripthash_get_balance,
             'blockchain.scripthash.get_history': self.scripthash_get_history,
+            'blockchain.scripthash.get_history_sbc': self.scripthash_get_history_sbc,
             'blockchain.scripthash.get_mempool': self.scripthash_get_mempool,
             'blockchain.scripthash.listunspent': self.scripthash_listunspent,
             'blockchain.scripthash.subscribe': self.scripthash_subscribe,
@@ -1698,3 +1704,129 @@ class AuxPoWElectrumX(ElectrumX):
             height += 1
 
         return headers.hex()
+
+
+class OMNIElectrumX(ElectrumX):
+    '''A TCP server that handles incoming Electrum OMNI connections.'''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_protocol_handlers(self, ptuple):
+        super().set_protocol_handlers(ptuple)
+        self.electrumx_handlers.update({
+            'omnicore.listblocktransactions': self.omnicore_listtx,
+            'omnicore.getbalance': self.omnicore_getbalance,
+            'omnicore.listproperties': self.omnicore_listprop,
+            'omnicore.getproperty': self.omnicore_getprop,
+            'omnicore.getallbalances': self.omnicore_getallbalances,
+            'omnicore.decodetransaction': self.omnicore_decodetransaction,
+            'blockchain.transaction.get': self.transactions_all,
+        })
+        
+
+    # Omnicored command handlers
+    async def omnicore_listtx(self, height):
+
+        try:
+            omni_info = await self.daemon.omni_listtx(
+                [height])
+            return omni_info
+        except DaemonError as e:
+            error = e.args[0]
+            message = error['message']
+            self.log_info('omnicore_listtx: {}'.format(message))
+            return (
+                'Omnicore listblocktransactions has errors.  ({})\n[{}]'
+                    .format(message, height)
+            )
+
+
+    async def omnicore_getbalance(self, address, propertyid):
+        '''Returns the balance of address for propertyid.'''
+        try:
+            result = await self.daemon.omni_getbalance([address, propertyid])
+            #self.log_info('omnicore_getbalance result: {}'.format(result))
+            if result is not None:
+                # return result.get('balance')
+                return result
+            return None
+        except DaemonError as e:
+            error = e.args[0]
+            message = error['message']
+            self.log_info('omnicore_getbalance: {}'.format(message))
+            return (
+                'Omnicore getbalance has errors.  ({}) \n [{}] PropertyID [{}]'
+                    .format(message, address, propertyid)
+            )
+
+
+    async def omnicore_listprop(self):
+        '''Pass through the masternode announce message to be broadcast
+        by the daemon.'''
+        try:
+            omni_info = await self.daemon.omni_listprop()
+            return omni_info
+        except DaemonError as e:
+            error = e.args[0]
+            message = error['message']
+            self.log_info('omnicore_listprop: {}'.format(message))
+            return (
+                'Omnicore listproperties has errors.  ({})\n'
+                    .format(message)
+            )
+
+
+    async def omnicore_getprop(self, propertyid):
+        '''Pass through the masternode announce message to be broadcast
+        by the daemon.'''
+        try:
+            omni_info = await self.daemon.omni_getprop([propertyid])
+            return omni_info
+        except DaemonError as e:
+            error = e.args[0]
+            message = error['message']
+            self.log_info('omnicore_getprop: {}'.format(message))
+            return (
+                'Omnicore getproperty has errors.  ({})\n PropertyID: [{}]'
+                    .format(message, propertyid)
+            )
+
+
+    async def omnicore_decodetransaction(self, txhash):
+        try:
+            tx_raw = await self.daemon.getrawtransaction(txhash)
+            omni_info = await self.daemon.omni_decodetransaction([tx_raw])
+            return omni_info
+        except DaemonError as e:
+            error = e.args[0]
+            message = error['message']
+            self.log_info('omnicore_decodetransaction: {}'.format(message))
+            return (
+                'Omnicore decodetransaction has errors.  ({})\n TxHash: [{}]'
+                    .format(message, txhash)
+            )
+
+
+    async def omnicore_getallbalances(self, address):
+        try:
+            omni_info = await self.daemon.omni_getallbalances([address])
+            return omni_info
+        except DaemonError as e:
+            error = e.args[0]
+            message = error['message']
+            self.log_info('omnicore_getallbalances: {}'.format(message))
+            return (
+                'Omnicore getallbalances has errors.  ({})\n[{}]'
+                    .format(message, address)
+            )
+
+
+    async def transactions_all(self, txhash):
+        try:
+            tx_raw = await self.daemon.getrawtransaction(txhash)
+            omni_info = await self.daemon.omni_decodetransaction([tx_raw])
+        except DaemonError as e:
+            error = e.args[0]
+            message = error['message']
+            self.log_info('gettransactions_all: {}'.format(message))
+            return tx_raw

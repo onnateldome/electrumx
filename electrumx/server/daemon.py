@@ -515,3 +515,63 @@ class ZcoinMtpDaemon(Daemon):
     async def protx(self, params):
         '''Set of commands to execute ProTx related actions.'''
         return await self._send_single('protx', params)
+
+
+class OmniDaemon(Daemon):
+    async def block_metadata(self, block_heights):
+        '''Return the raw binary blocks with the given hex hashes.'''
+        omni_blocks_txs = await self.omni_listblocktransactions(block_heights)
+        metadata = []
+        for blk_txs in omni_blocks_txs:
+            blk_md = {}
+            # TODO convert to vector calls
+            for txid in blk_txs:
+                rawtx = await self.getrawtransaction(txid)
+                omni_tx = await self.omni_decodetransaction([rawtx])
+                blk_md[hex_str_to_hash(txid)] = omni_tx
+            metadata.append(blk_md)
+            #self.logger.info('Block metadata appended..')
+        return metadata
+
+    async def omni_listprop(self):
+        '''Return the list of OMNI properties.'''
+        #self.log_info('omnicore_listprop: req_id:{}'.format(self.req_id))
+        return await self._send_single('omni_listproperties')
+
+    async def omni_getbalance(self, params):
+        '''Return the balance of OMNI property for address.'''
+        #self.log_info('omnicore_getbalance: params:{} req_id:{}'.format(params, self.req_id))
+        return await self._send_single('omni_getbalance', params)
+
+    async def omni_getprop(self, params):
+        '''Return the info of OMNI property with ID.'''
+        #self.log_info('omnicore_getprop: params:{} req_id:{}'.format(params, self.req_id))
+        return await self._send_single('omni_getproperty', params)
+
+    async def omni_getallbalances(self, params):
+        '''Return the info of OMNI property with ID.'''
+        #self.log_info('omnicore_getallbalances: params:{} req_id:{}'.format(params, self.req_id))
+        return await self._send_single('omni_getallbalancesforaddress',
+                                       params)
+
+    async def omni_listblocktransactions(self, block_heights):
+        '''Return the raw binary blocks with the given hex hashes.'''
+        params_iterable = ((h, ) for h in block_heights)
+
+
+        #self.logger.info('Omni_listblocktransactions is called req_id:{}'.format(self.req_id))
+        try:
+            result = await self._send_vector('omni_listblocktransactions',
+                                             params_iterable)
+            #self.logger.info('RESULT IS : {}'.format(str(result)))
+        except DaemonError as e:
+            self.logger.info('Error {} result: {}'.format(e, result))
+
+
+        return await self._send_vector('omni_listblocktransactions',
+                                       params_iterable)
+
+    async def omni_decodetransaction(self, params):
+        '''Return the parsed OMNI transaction.'''
+        #self.log_info('omnicore_decodetransaction: params:{} req_id:{}'.format(params, self.req_id))
+        return await self._send_single('omni_decodetransaction', params)

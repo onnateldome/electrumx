@@ -912,34 +912,6 @@ class DeserializerECCoin(Deserializer):
 
         return tx
 
-# Zcoin
-class TxInputZcoin(namedtuple("TxInput", "prev_hash prev_idx script sequence")):
-    def is_generation(self):
-        '''Test if an input is generation/coinbase like'''
-        return self.prev_hash == ZERO #Treat Zerocoin and Sigma inputs as coinbase
-
-class DeserializerZcoin(Deserializer):
-    def _read_input(self):
-        tx_input = TxInput(
-            self._read_nbytes(32),   # prev_hash
-            self._read_le_uint32(),  # prev_idx
-            self._read_varbytes(),   # script
-            self._read_le_uint32()   # sequence
-        )
-
-        if tx_input.prev_idx == MINUS_1 and tx_input.prev_hash == ZERO:
-            return tx_input
-
-        if tx_input.script[0] == 0xc4:  # This is a Sigma spend - mimic a generation tx
-            return TxInputZcoin(
-                ZERO,
-                tx_input.prev_idx,
-                tx_input.script,
-                tx_input.sequence
-            )
-
-        return tx_input
-
 
 class DeserializerXaya(DeserializerSegWit, DeserializerAuxPow):
     """Deserializer class for the Xaya network

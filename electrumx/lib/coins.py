@@ -2375,7 +2375,7 @@ class Zcoin(Coin):
     STATIC_BLOCK_HEADERS = False
     SESSIONCLS = DashElectrumX
     DAEMON = daemon.ZcoinMtpDaemon
-    DESERIALIZER = lib_tx.DeserializerZcoin
+    DESERIALIZER = lib_tx_dash.DeserializerZcoin
     PEERS = [
         'electrum.polispay.com'
     ]
@@ -2414,8 +2414,9 @@ class ZcoinTestnet(Zcoin):
     P2PKH_VERBYTE = bytes.fromhex("41")
     P2SH_VERBYTES = [bytes.fromhex("b2")]
     WIF_BYTE = bytes.fromhex("b9")
-    GENESIS_HASH = '1e3487fdb1a7d46dac3e8f3e58339c6e' \
-                   'ff54abf6aef353485f3ed64250a35e89'
+    GENESIS_HASH = 'aa22adcc12becaf436027ffe62a8fb21b234c58c23865291e5dc52cf53f64fca'
+#    GENESIS_HASH = '1e3487fdb1a7d46dac3e8f3e58339c6e' \
+#                   'ff54abf6aef353485f3ed64250a35e89'
     REORG_LIMIT = 8000
     RPC_PORT = 18888
 

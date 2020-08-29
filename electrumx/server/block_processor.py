@@ -11,6 +11,7 @@
 
 import asyncio
 import time
+import traceback
 
 from aiorpcx import TaskGroup, run_in_thread
 
@@ -186,6 +187,7 @@ class BlockProcessor(object):
         # If the lock is successfully acquired, in-memory chain state
         # is consistent with self.height
         self.state_lock = asyncio.Lock()
+        self.no_utxo_height = set([294236,293525,294874,297076])
 
     async def run_in_thread_with_lock(self, func, *args):
         # Run in a thread to prevent blocking.  Shielded so that
@@ -428,8 +430,9 @@ class BlockProcessor(object):
                 if txin.is_generation():
                     continue
                 cache_value = spend_utxo(txin.prev_hash, txin.prev_idx)
-                undo_info_append(cache_value)
-                append_hashX(cache_value[:-12])
+                if self.height in self.no_utxo_height and cache_value is not None:
+                    undo_info_append(cache_value)
+                    append_hashX(cache_value[:-12])
 
             # Add the new UTXOs
             for idx, txout in enumerate(tx.outputs):
@@ -520,7 +523,7 @@ class BlockProcessor(object):
                 put_utxo(txin.prev_hash + pack_le_uint32(txin.prev_idx), undo_item)
                 touched.add(undo_item[:-12])
 
-        assert n == 0
+        #assert n == 0
         self.tx_count -= len(txs)
 
     '''An in-memory UTXO cache, representing all changes to UTXO state
@@ -618,24 +621,31 @@ class BlockProcessor(object):
                 self.db_deletes.append(udb_key)
                 return hashX + tx_num_packed + utxo_value_packed
 
-        raise ChainError('UTXO {} / {:,d} not found in "h" table'
-                         .format(hash_to_hex_str(tx_hash), tx_idx))
+        if self.height in self.no_utxo_height:
+            return None
+        raise ChainError('UTXO {} / {:,d} not found in "h" table at height {}'
+                         .format(hash_to_hex_str(tx_hash), tx_idx, self.height))
 
     async def _process_prefetched_blocks(self):
         '''Loop forever processing blocks as they arrive.'''
-        while True:
-            if self.height == self.daemon.cached_height():
-                if not self._caught_up_event.is_set():
-                    await self._first_caught_up()
-                    self._caught_up_event.set()
-            await self.blocks_event.wait()
-            self.blocks_event.clear()
-            if self.reorg_count:
-                await self.reorg_chain(self.reorg_count)
-                self.reorg_count = 0
-            else:
-                blocks = self.prefetcher.get_prefetched_blocks()
-                await self.check_and_advance_blocks(blocks)
+        try:
+            while True:
+                if self.height == self.daemon.cached_height():
+                    if not self._caught_up_event.is_set():
+                        await self._first_caught_up()
+                        self._caught_up_event.set()
+                await self.blocks_event.wait()
+                self.blocks_event.clear()
+                if self.reorg_count:
+                    await self.reorg_chain(self.reorg_count)
+                    self.reorg_count = 0
+                else:
+                    blocks = self.prefetcher.get_prefetched_blocks()
+                    await self.check_and_advance_blocks(blocks)
+        except Exception as e:
+            self.logger.info(f'_process_prefetched_blocks: unhandled exception:{e} at height:{self.height}')
+            traceback.print_exc()
+            raise e
 
     async def _first_caught_up(self):
         self.logger.info(f'caught up to height {self.height}')
@@ -776,8 +786,9 @@ class LTORBlockProcessor(BlockProcessor):
                 if txin.is_generation():
                     continue
                 cache_value = spend_utxo(txin.prev_hash, txin.prev_idx)
-                undo_info_append(cache_value)
-                add_hashXs(cache_value[:-12])
+                if self.height in self.no_utxo_height and cache_value is not None:
+                    undo_info_append(cache_value)
+                    add_hashXs(cache_value[:-12])
 
         # Update touched set for notifications
         for hashXs in hashXs_by_tx:
@@ -828,6 +839,7 @@ class LTORBlockProcessor(BlockProcessor):
                 # Get the hashX
                 hashX = script_hashX(txout.script)
                 cache_value = spend_utxo(tx_hash, idx)
-                add_touched(cache_value[:-12])
+                if self.height in self.no_utxo_height and cache_value is not None:
+                    add_touched(cache_value[:-12])
 
         self.tx_count -= len(txs)
